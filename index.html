@@ -1,0 +1,139 @@
+<!doctype html>
+
+<html ng-app>
+	<head>
+		<title>Darling Quarter</title>
+		<style>
+			#lights table {
+			 	border-spacing: 0px;
+			}
+			
+			
+			body,
+			#lights,
+			#lights table tbody,
+			#lights table tr,
+			#lights table td {
+				-webkit-touch-callout: none;
+				-webkit-user-select: none;
+				-khtml-user-select: none;
+				-moz-user-select: none;
+				-ms-user-select: none;
+				user-select: none;
+			}
+			
+			#lights table td.pixel {
+				width: 4px;
+				height: 24px;
+				border: 1px solid #222;
+			}
+			
+			#lights table td.space {
+				height: 24px;
+				width: 62px;
+			}
+		</style>
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+		<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.0.6/angular.min.js"></script>
+		<script>
+			// Constants
+			var NUM_ROWS = 4;
+			var NUM_COLS = 207;
+			var SPACE = 125;
+			var API_PATH = "http://secure.darlingquarter.www.myinteractivecity.com/bridge.aspx?callback=?";
+			
+			// Align the pixel co-ordinates to the light co-ordinates
+			var alignPixel = function(pixel) {
+				return aligned = {
+					x: (pixel.x/NUM_COLS),
+					y: 0.25 + 0.5*(pixel.y/NUM_ROWS),
+				};
+			};
+			
+			function lightCtrl($scope) {
+				// Create the blank light data
+				$scope.lights = [];
+				for (var r=0; r<NUM_ROWS; r++) {
+					$scope.lights.push([]);
+					for (var p=0; p<NUM_COLS; p++) {
+						// Space between buildings
+						if (p == SPACE)
+							$scope.lights[r].push({x: p, y: r, type: "space", color: "none"});
+						
+						$scope.lights[r].push({x: p, y: r, type: "pixel", color: "#000000"});
+					}
+				}
+				
+				// The paint color
+				$scope.color = "#ff0000";
+				$scope.painting = false;
+				
+				// Set the paint color
+				$scope.setColor = function(color) {
+					var input = {a: "sendaction", o: "cp-"+color.replace("#", ""), s: 1};
+					// Send the data
+					$.getJSON(API_PATH, input);
+				};
+				
+				// Paint a single pixel
+				$scope.paintPixel = function(pixel) {
+					// Set the color of the pixel
+					if (pixel.color != "none") {
+						pixel.color =  $scope.color;
+						$scope.setColor($scope.color);
+					}
+					
+					// Get pixel data
+					var aligned = alignPixel(pixel);
+					var input = {a: "sendaction", o: "ps-0", s: 1, x: aligned.x.toFixed(4), y: aligned.y.toFixed(4)};
+					// Send the data
+					$.getJSON(API_PATH, input);
+					
+					// Make it appear like a swipe
+					input.y = (aligned.y + 0.001).toFixed(4);
+					input.s = 2;
+					// Send the data
+					$.getJSON(API_PATH, input);
+				}
+				
+				// Paint all pixels
+				$scope.paintPixels = function() {
+					for (var r=0; r<$scope.lights.length; r++) {
+						var row = $scope.lights[r];
+						for (var p=0; p<row.length; p++) {
+							var pixel = row[p];
+							$scope.paintPixel(p);
+						}
+					}
+				};
+				
+				// Start or stop painting
+				$scope.setPainting = function(bool, pixel) {
+					$scope.painting = bool;
+					if (bool && pixel)
+						$scope.paintPixel(pixel);
+				};
+				
+				// Paint if mouse down
+				$scope.mousePaint = function(pixel) {
+					if ($scope.painting)
+						$scope.paintPixel(pixel);
+				};
+			};
+		</script>
+	</head>
+	<body ng-controller="lightCtrl">
+		<div id="lights">
+			<table>
+				<tr ng-repeat="row in lights">
+					<td ng-repeat="pixel in row" ng-mousedown="setPainting(true, pixel)" ng-mouseup="setPainting(false)"
+					ng-mouseover="mousePaint(pixel)"
+					class="{{pixel.type}}" style="background-color: {{pixel.color}}">
+					</td>
+				</tr>
+			</table>
+		</div>
+		<input ng-model="color" type="color" />
+		{{painting}}
+	</body>
+</html>
